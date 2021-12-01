@@ -26,6 +26,6 @@ services:
     networks:
       - private
     ports:
-      - 8002:8002
+      - "$port:$port"
     command: "/app/run.sh"
 
