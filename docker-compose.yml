@@ -1,4 +1,4 @@
-version: '3.7'
+version: '3.3'
 
 networks:
   private:
@@ -27,5 +27,3 @@ services:
       - private
     ports:
       - "$port:$port"
-    command: "/app/run.sh"
-
