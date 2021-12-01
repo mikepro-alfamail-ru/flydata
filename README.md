@@ -36,16 +36,27 @@ docker-compose up
 
 Запускается только приложение
 
+1. Скачать репозиторий и подготовить venv
 ```commandline
 git clone https://github.com/mikepro-alfamail-ru/flydata.git
 cd flydata
 pip install virtualenv
 python3 -m virtualenv venv
 source ./venv/bin/activate
-#
-# vi .env
-# (if needed)
-#
+vi .env # (if needed)
 export $(grep -v '^#' .env | xargs)
+```
+
+2. Можно загрузить подготовленные данные и функции
+
+```
+pip install j2cli 
+j2 db.sql.j2 -o db.sql
+PGPASSWORD=$password psql -U $user -h $host -d $db < db.sql
+```
+
+3. И, наконец, запустить приложение
+
+```
 python3 main.py
 ```
