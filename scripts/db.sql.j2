@@ -1,0 +1,262 @@
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+
+CREATE SCHEMA {{ schema }};
+
+
+ALTER SCHEMA {{ schema }} OWNER TO {{ user }};
+
+
+COMMENT ON SCHEMA {{ schema }} IS 'standard public schema';
+
+
+
+CREATE FUNCTION {{ schema }}.comment_del(id_comment integer) RETURNS TABLE(id integer)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	delete from {{ schema }}."comment" where "comment".id = id_comment;
+	return query SELECT id_comment::integer as id;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.comment_del(id_comment integer) OWNER TO {{ user }};
+
+
+CREATE FUNCTION {{ schema }}.comment_get(id_comment integer) RETURNS TABLE(id integer, id_user integer, txt character varying)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	if id_comment > 0 then
+		return query select * from {{ schema }}."comment" where "comment".id = id_comment;
+    else
+    	return query select * from {{ schema }}."comment";
+    end if;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.comment_get(id_comment integer) OWNER TO {{ user }};
+
+
+CREATE FUNCTION {{ schema }}.comment_upd(id_comment integer, in_json json) RETURNS TABLE(id integer, id_user integer, txt character varying)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	update {{ schema }}."comment"
+	set txt = js.txt
+	from (
+		select in_comment->> 'txt' as "txt" from
+		json(in_json) in_comment
+		) js
+	where "comment".id = id_comment;
+	return query SELECT * from {{ schema }}."comment" where "comment".id = id_comment;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.comment_upd(id_comment integer, in_json json) OWNER TO {{ user }};
+
+
+CREATE FUNCTION {{ schema }}.user_comment_get(id_user1 integer, id_comment integer) RETURNS TABLE(id integer, id_user integer, txt character varying)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	if id_comment > 0 then
+		return query select * from {{ schema }}."comment" where "comment".id_user = id_user1 and "comment".id = id_comment;
+    else
+    	return query select * from {{ schema }}."comment" where "comment".id_user = id_user1;
+    end if;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.user_comment_get(id_user1 integer, id_comment integer) OWNER TO {{ user }};
+
+
+CREATE FUNCTION {{ schema }}.user_comment_ins(id_user1 integer, in_json json) RETURNS TABLE(id integer)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	insert into {{ schema }}."comment" (id_user, txt)
+	select id_user1, in_comment->>'txt' from
+	json(in_json) in_comment;
+	return query SELECT currval('{{ schema }}.comment_id_seq')::int4 as id;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.user_comment_ins(id_user1 integer, in_json json) OWNER TO {{ user }};
+
+
+CREATE FUNCTION {{ schema }}.user_del(id_user integer) RETURNS TABLE(id integer)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	delete from {{ schema }}."user" where "user".id = id_user;
+	return query SELECT id_user::integer as id;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.user_del(id_user integer) OWNER TO {{ user }};
+
+
+CREATE FUNCTION {{ schema }}.user_get(id_user integer) RETURNS TABLE(id integer, name character varying, email character varying)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	if id_user > 0 then
+		return query select * from {{ schema }}."user" where "user".id = id_user;
+    else
+    	return query select * from {{ schema }}."user";
+    end if;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.user_get(id_user integer) OWNER TO {{ user }};
+
+
+CREATE FUNCTION {{ schema }}.user_ins(in_json json) RETURNS TABLE(id integer)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	insert into {{ schema }}."user" ("name", email)
+	select in_user->> 'name', in_user->>'email' from
+	json(in_json) in_user;
+	return query SELECT currval('{{ schema }}.user_id_seq')::int4 as id;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.user_ins(in_json json) OWNER TO {{ user }};
+
+
+CREATE FUNCTION {{ schema }}.user_upd(id_user integer, in_json json) RETURNS TABLE(id integer, name character varying, email character varying)
+    LANGUAGE plpgsql
+    AS $$
+begin
+	update {{ schema }}."user"
+	set "name" = js."name", email = js.email
+	from (
+		select in_user->> 'name' as "name", in_user->>'email' as email from
+		json(in_json) in_user
+		) js
+	where "user".id = id_user;
+	return query SELECT * from {{ schema }}."user" where "user".id = id_user;
+end;
+$$;
+
+
+ALTER FUNCTION {{ schema }}.user_upd(id_user integer, in_json json) OWNER TO {{ user }};
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+
+CREATE TABLE {{ schema }}.comment (
+    id integer NOT NULL,
+    id_user integer,
+    txt character varying
+);
+
+
+ALTER TABLE {{ schema }}.comment OWNER TO {{ user }};
+
+
+CREATE SEQUENCE {{ schema }}.comment_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE {{ schema }}.comment_id_seq OWNER TO {{ user }};
+
+
+ALTER SEQUENCE {{ schema }}.comment_id_seq OWNED BY {{ schema }}.comment.id;
+
+
+CREATE TABLE {{ schema }}."user" (
+    id integer NOT NULL,
+    name character varying,
+    email character varying
+);
+
+
+ALTER TABLE {{ schema }}."user" OWNER TO {{ user }};
+
+
+CREATE SEQUENCE {{ schema }}.user_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE {{ schema }}.user_id_seq OWNER TO {{ user }};
+
+
+ALTER SEQUENCE {{ schema }}.user_id_seq OWNED BY {{ schema }}."user".id;
+
+
+ALTER TABLE ONLY {{ schema }}.comment ALTER COLUMN id SET DEFAULT nextval('{{ schema }}.comment_id_seq'::regclass);
+
+
+
+ALTER TABLE ONLY {{ schema }}."user" ALTER COLUMN id SET DEFAULT nextval('{{ schema }}.user_id_seq'::regclass);
+
+
+
+INSERT INTO {{ schema }}.comment VALUES (2, 1, 'Cool!');
+INSERT INTO {{ schema }}.comment VALUES (4, 1, 'Yeah!');
+INSERT INTO {{ schema }}.comment VALUES (5, 1, 'Well...');
+INSERT INTO {{ schema }}.comment VALUES (10, 1, 'Well...');
+INSERT INTO {{ schema }}.comment VALUES (18, 1, NULL);
+INSERT INTO {{ schema }}.comment VALUES (19, 1, 'asdas');
+INSERT INTO {{ schema }}.comment VALUES (20, 1, 'asdas');
+INSERT INTO {{ schema }}.comment VALUES (23, 1, 'Not really Yeah!');
+INSERT INTO {{ schema }}.comment VALUES (24, 26, 'Cool comment!');
+
+
+INSERT INTO {{ schema }}."user" VALUES (1, 'Vasya', 'asd@dfg.ru');
+INSERT INTO {{ schema }}."user" VALUES (4, 'Zhenya', 'dfgh@qwe.com');
+INSERT INTO {{ schema }}."user" VALUES (5, 'Kolya', 'kolyan@qwe.com');
+INSERT INTO {{ schema }}."user" VALUES (6, 'Miha', 'eerrr@qw.ee');
+INSERT INTO {{ schema }}."user" VALUES (26, 'Masha', 'dddd@qq.df');
+INSERT INTO {{ schema }}."user" VALUES (22, 'Not Masha', 'dddd@qq.df');
+
+
+
+SELECT pg_catalog.setval('{{ schema }}.comment_id_seq', 23, true);
+
+
+SELECT pg_catalog.setval('{{ schema }}.user_id_seq', 26, true);
+
+
+ALTER TABLE ONLY {{ schema }}.comment
+    ADD CONSTRAINT comment_pkey PRIMARY KEY (id);
+
+
+ALTER TABLE ONLY {{ schema }}."user"
+    ADD CONSTRAINT user_pkey PRIMARY KEY (id);
+
+
+ALTER TABLE ONLY {{ schema }}.comment
+    ADD CONSTRAINT comment_id_user_fkey FOREIGN KEY (id_user) REFERENCES {{ schema }}."user"(id) ON DELETE CASCADE;
